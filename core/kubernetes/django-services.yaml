@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: django
+spec:
+  ports:
+    - port: 8000
+      targetPort: 8000
+  selector:
+    app: django
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: django
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: django
+  template:
+    metadata:
+      labels:
+        app: django
+    spec:
+      containers:
+        - name: django
+          image: django-app:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: django-config
+          command: ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+          volumeMounts:
+            - name: app-code
+              mountPath: /app
+      volumes:
+        - name: app-code
+          hostPath:
+            path: .

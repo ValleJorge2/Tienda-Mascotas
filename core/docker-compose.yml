@@ -1,0 +1,235 @@
+services:
+  django:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DJANGO_SETTINGS_MODULE=core.settings
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+    networks:
+      - mascotas-net
+
+  cart:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      sh -c "python manage.py runserver 0.0.0.0:8001 &
+             sleep 10 &&
+             python manage.py cart_consumer &
+             python manage.py cart_product_consumer"
+    deploy:
+      replicas: 2
+    volumes:
+      - .:/app
+    environment:
+      - DJANGO_SETTINGS_MODULE=core.settings
+      - SERVICE_NAME=cart
+      - RABBITMQ_HOST=rabbitmq
+      - PYTHONUNBUFFERED=1
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      mascotas-net:
+        aliases:
+          - cart-service
+
+  products:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      sh -c "python manage.py runserver 0.0.0.0:8002 &
+             sleep 10 &&
+             python manage.py products_consumer"
+    deploy:
+      replicas: 2
+    volumes:
+      - .:/app
+    environment:
+      - DJANGO_SETTINGS_MODULE=core.settings
+      - SERVICE_NAME=products
+      - RABBITMQ_HOST=rabbitmq
+      - PYTHONUNBUFFERED=1
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      mascotas-net:
+        aliases:
+          - products-service
+
+  reviews:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      sh -c "python manage.py runserver 0.0.0.0:8003 &
+             sleep 10 &&
+             python manage.py reviews_consumer &
+             python manage.py reviews_product_consumer"
+    deploy:
+      replicas: 2
+    volumes:
+      - .:/app
+    environment:
+      - DJANGO_SETTINGS_MODULE=core.settings
+      - SERVICE_NAME=reviews
+      - RABBITMQ_HOST=rabbitmq
+      - PYTHONUNBUFFERED=1
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      mascotas-net:
+        aliases:
+          - reviews-service
+
+  orders:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      sh -c "python manage.py runserver 0.0.0.0:8004 &
+             sleep 10 &&
+             python manage.py orders_product_consumer"
+    deploy:
+      replicas: 2
+    volumes:
+      - .:/app
+    environment:
+      - DJANGO_SETTINGS_MODULE=core.settings
+      - SERVICE_NAME=orders
+      - RABBITMQ_HOST=rabbitmq
+      - PYTHONUNBUFFERED=1
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      mascotas-net:
+        aliases:
+          - orders-service
+
+  categories:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: >
+      sh -c "python manage.py runserver 0.0.0.0:8005 &
+             sleep 10 &&
+             python manage.py categories_consumer"
+    deploy:
+      replicas: 2
+    volumes:
+      - .:/app
+    environment:
+      - DJANGO_SETTINGS_MODULE=core.settings
+      - SERVICE_NAME=categories
+      - RABBITMQ_HOST=rabbitmq
+      - PYTHONUNBUFFERED=1
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      mascotas-net:
+        aliases:
+          - categories-service
+
+  users:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: python manage.py runserver 0.0.0.0:8006
+    deploy:
+      replicas: 2
+    volumes:
+      - .:/app
+    environment:
+      - DJANGO_SETTINGS_MODULE=core.settings
+      - SERVICE_NAME=users
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+    networks:
+      mascotas-net:
+        aliases:
+          - users-service
+
+  kong:
+    build:
+      context: ./kong
+      dockerfile: Dockerfile.init
+    environment:
+      - KONG_DATABASE=off
+      - KONG_PROXY_ACCESS_LOG=/dev/stdout
+      - KONG_ADMIN_ACCESS_LOG=/dev/stdout
+      - KONG_PROXY_ERROR_LOG=/dev/stderr
+      - KONG_ADMIN_ERROR_LOG=/dev/stderr
+      - KONG_ADMIN_LISTEN=0.0.0.0:8001
+      - KONG_PROXY_LISTEN=0.0.0.0:8000
+      - KONG_DECLARATIVE_CONFIG=/kong.yaml
+      - KONG_LOG_LEVEL=debug
+      - KONG_DNS_ORDER=LAST,A,CNAME
+      - KONG_DNS_NO_SYNC=off
+    ports:
+      - "9000:8000"
+      - "9001:8001"
+    networks:
+      - mascotas-net
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    healthcheck:
+      test: ["CMD", "rabbitmqctl", "status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - mascotas-net
+
+networks:
+  mascotas-net:
+    driver: bridge

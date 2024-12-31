@@ -1,0 +1,15 @@
+# .gitignore
+.env
+*.pyc
+__pycache__/
+.DS_Store
+*.sqlite3
+media/
+.idea/
+.vscode/
+*.log
+*.pot
+*.pyc
+local_settings.py
+db.sqlite3
+db.sqlite3-journal

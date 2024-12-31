@@ -1,0 +1,82 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kong-migration
+  namespace: mascotas
+spec:
+  template:
+    spec:
+      containers:
+        - name: kong-migration
+          image: kong:3.4
+          command: ["kong", "migrations", "bootstrap"]
+          env:
+            - name: KONG_DATABASE
+              value: postgres
+            - name: KONG_PG_HOST
+              value: kong-database
+            - name: KONG_PG_USER
+              value: kong
+            - name: KONG_PG_PASSWORD
+              value: kongpass
+      restartPolicy: OnFailure
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kong
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kong
+  template:
+    metadata:
+      labels:
+        app: kong
+    spec:
+      containers:
+        - name: kong
+          image: kong:3.4
+          env:
+            - name: KONG_DATABASE
+              value: postgres
+            - name: KONG_PG_HOST
+              value: kong-database
+            - name: KONG_PG_USER
+              value: kong
+            - name: KONG_PG_PASSWORD
+              value: kongpass
+            - name: KONG_PROXY_ACCESS_LOG
+              value: /dev/stdout
+            - name: KONG_ADMIN_ACCESS_LOG
+              value: /dev/stdout
+            - name: KONG_PROXY_ERROR_LOG
+              value: /dev/stderr
+            - name: KONG_ADMIN_ERROR_LOG
+              value: /dev/stderr
+            - name: KONG_ADMIN_LISTEN
+              value: 0.0.0.0:8001
+            - name: KONG_PROXY_LISTEN
+              value: 0.0.0.0:8000
+          ports:
+            - containerPort: 8000
+              name: proxy
+            - containerPort: 8001
+              name: admin
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong
+spec:
+  type: LoadBalancer
+  ports:
+    - name: proxy
+      port: 9000  # Changed to match your docker-compose
+      targetPort: 8000
+    - name: admin
+      port: 9001  # Changed to match your docker-compose
+      targetPort: 8001
+  selector:
+    app: kong
