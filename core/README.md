@@ -21,6 +21,8 @@ Sistema de microservicios para una plataforma de mascotas, implementado con Djan
 
 ## 🏗 Arquitectura
 
+### Diagrama de la Arquitectura esta en el archivo core y esta como .png
+
 ### Microservicios
 1. **Users Service (Puerto: 8006)**
    - Gestión de usuarios
